@@ -1,0 +1,70 @@
+# docker-compose.yml
+# Ampalone Partner Portal - Docker Compose Configuration
+# Version: 1.0.0
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ampalone_postgres
+    environment:
+      POSTGRES_DB: ampalone_portal
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ampalone_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ampalone_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ampalone_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ampalone_backend
+    environment:
+      DATABASE_URL: postgresql://admin:${DB_PASSWORD:-admin123}@postgres:5432/ampalone_portal
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-in-production}
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./documents:/app/documents
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - ampalone_network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  ampalone_network:
+    driver: bridge
