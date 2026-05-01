@@ -1,0 +1,5 @@
+# Create these empty files to preserve directory structure in git
+
+# uploads/.gitkeep
+# documents/.gitkeep
+# logs/.gitkeep
